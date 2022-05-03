@@ -113,9 +113,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a6f58141e9f357e448fd2fa6f1afc1f7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  maxVelocity: 2.5
-  maxAcceleration: 10
-  turnSpeed: 20
+  maxVelocity: 3
+  maxAcceleration: 15
+  turnSpeed: 30
   targetRadius: 0.005
   slowRadius: 1
   timeToTarget: 0.1
@@ -133,15 +133,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e008bb997f9e8cc42a7861ed1e5b45ea, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  maxAcceleration: 50
+  maxAcceleration: 40
   wallDetection: 0
   castMask:
     serializedVersion: 2
     m_Bits: 4294967291
-  wallAvoidDistance: 1.3
-  mainWhiskerLen: 1.1
-  sideWhiskerLen: 0.7
-  sideWhiskerAngle: 30
+  wallAvoidDistance: 0.5
+  mainWhiskerLen: 1.2
+  sideWhiskerLen: 0.701
+  sideWhiskerAngle: 45
 --- !u!114 &8183138583313880905
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -155,7 +155,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   collideDist: 0.65
-  arriveDist: 0.3
+  arriveDist: 0.4
 --- !u!114 &11476988
 MonoBehaviour:
   m_ObjectHideFlags: 0

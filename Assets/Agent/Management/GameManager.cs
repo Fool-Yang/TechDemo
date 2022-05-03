@@ -1,4 +1,5 @@
 ﻿using UnityEngine;
+using UnityEngine.UI;
 using UnityMovementAI;
 using Generator;
 using Agent;
@@ -11,6 +12,7 @@ namespace Management
         ObstacleSpawner os;
         UnitSpawner us;
         CameraManager cm;
+        Text win;
 
         [System.NonSerialized]
         public Vector3 alertPosition;
@@ -22,6 +24,7 @@ namespace Management
 
         public int numTargets;
         public bool gameWon;
+        public bool running;
 
         public GameObject Dummy;
         Transform dummyTrans;
@@ -30,6 +33,9 @@ namespace Management
         public Transform dummyInstance = null;
 
         void Start() {
+            running = false;
+            win = GameObject.Find("Win").GetComponent<Text>();
+            win.color = new Color(0f, 0f, 0f, 0f);
             dg = GameObject.Find("DungeonGenerator").GetComponent<DungeonGenerator>();
             os = GameObject.Find("ObstacleSpawner").GetComponent<ObstacleSpawner>();
             us = GameObject.Find("UnitSpawner").GetComponent<UnitSpawner>();
@@ -38,6 +44,9 @@ namespace Management
         }
 
         public void Generate() {
+            running = true;
+            gameWon = false;
+            win.color = new Color(0f, 0f, 0f, 0f);
             dg.Generate();
             os.Generate();
             numTargets = us.Generate();
@@ -46,15 +55,17 @@ namespace Management
             if (dummyInstance != null) {
                 Destroy(dummyInstance.gameObject);
             }
-            gameWon = false;
         }
 
         void FixedUpdate() {
+            if (!running) return;
             if (!gameWon && numTargets == 0) {
                 foreach (MovementAIRigidbody guard in us.GuardUnits) {
                     guard.GetComponent<GuardUnit>().target = null;
                 }
                 gameWon = true;
+                running = false;
+                win.color = new Color(30f/255f, 140f/255f, 110f/255f, 1f);
             }
             // update alert position
             if (alertPosition != nullAlert) {
@@ -62,6 +73,7 @@ namespace Management
                     dummyInstance = Instantiate(dummyTrans, alertPosition, alertQuaternion) as Transform;
                 }
                 dummyInstance.position = alertPosition;
+                dummyInstance.rotation = alertQuaternion;
             }
         }
     }

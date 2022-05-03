@@ -19,6 +19,7 @@ namespace Agent
         UnitEvent uevent;
         GameManager gm;
         DungeonGenerator dg;
+        Stack<Vector3> chasePath = null;
         Stack<Vector3> investigatePath = null;
         Stack<Vector3> patrolPath = null;
         float roomSize;
@@ -89,16 +90,7 @@ namespace Agent
 
         // perception
         bool IsInSight(Vector3 positon) {
-            Vector3 myRoom = NearestWaypoint(transform.position);
-            Vector3 targetRoom = NearestWaypoint(positon);
-            List<Vector3> neighbors = Neighbors(myRoom);
-            neighbors.Add(myRoom);
-            foreach (Vector3 neighbor in neighbors) {
-                if (neighbor == targetRoom) {
-                    return Vector3.Distance(positon, transform.position) <= chaseDist;
-                }
-            }
-            return false;
+            return FindPathTo(positon).Count <= 7 && Vector3.Distance(positon, transform.position) <= chaseDist;
         }
 
         /**************************************
@@ -116,9 +108,23 @@ namespace Agent
             // destroy outdated path
             patrolPath = null;
 
-            // steer towards the player
+            chasePath = FindPathTo(target.Position);
+            Vector3 nextPoint;
+            if (chasePath.Count <= 3) {
+                // vecry close, steer towards the player directly
+                nextPoint = target.Position;
+            } else {
+                // go to the next waypoint
+                nextPoint = chasePath.Peek();
+                if (uevent.Arrived(nextPoint)) {
+                    nextPoint = chasePath.Pop();
+                    nextPoint = chasePath.Peek();
+                }
+            }
+
+            // steer
             Vector3 facing = GetComponent<MovementAIRigidbody>().Velocity;
-            Vector3 accel = steeringBasics.Seek(target.Position);
+            Vector3 accel = steeringBasics.Seek(nextPoint);
             Vector3 avoid = wallAvoid.GetSteering(facing);
 
             if (avoid.magnitude >= 0.005f)
@@ -145,15 +151,12 @@ namespace Agent
                 Destroy(gm.dummyInstance.gameObject);
                 return;
             }
+
+            // otherwise go to the next waypoint
             Vector3 nextPoint = investigatePath.Peek();
             if (uevent.Arrived(nextPoint)) {
                 nextPoint = investigatePath.Pop();
-                if (investigatePath.Count > 0) {
-                    nextPoint = investigatePath.Peek();
-                } else {
-                    investigatePath = null;
-                    return;
-                }
+                nextPoint = investigatePath.Peek();
             }
 
             // steer towards the waypoint
@@ -173,7 +176,7 @@ namespace Agent
         void SetPatrolPath() {
             // set random destination
             Vector3 dest;
-            Vector3 myRoom = NearestWaypoint(transform.position);
+            Vector3 myRoom = NearestRoom(transform.position);
             do {
                 dest = dg.Waypoints[UnityEngine.Random.Range(0, dg.Waypoints.Count)];
             } while (dest == myRoom);
@@ -216,16 +219,16 @@ namespace Agent
          */
         Stack<Vector3> FindPathTo(Vector3 end) {
             // BFS
-            Vector3 startRoom = NearestWaypoint(transform.position);
-            Vector3 endRoom = NearestWaypoint(end);
+            Vector3 startWaypoint = NearestWaypoint(transform.position);
+            Vector3 endWaypoint = NearestWaypoint(end);
             Queue<Vector3> queue = new Queue<Vector3>();
             Dictionary<Vector3, Vector3> prev = new Dictionary<Vector3, Vector3>();
-            queue.Enqueue(startRoom);
-            prev[startRoom] = gm.nullAlert;
+            queue.Enqueue(startWaypoint);
+            prev[startWaypoint] = gm.nullAlert;
             Vector3 curr;
             while (queue.Count > 0) {
                 curr = queue.Dequeue();
-                foreach (Vector3 child in Neighbors(curr)) {
+                foreach (Vector3 child in dg.Neighbors[curr]) {
                     if (!prev.ContainsKey(child)) {
                         prev[child] = curr;
                         queue.Enqueue(child);
@@ -235,18 +238,18 @@ namespace Agent
             // trace the path
             Stack<Vector3> path = new Stack<Vector3>();
             // if the end is not at the center of a room, add as the last waypoint
-            if (end != endRoom) {
+            if (end != endWaypoint) {
                 path.Push(end);
             }
-            curr = endRoom;
-            while (prev[curr] != gm.nullAlert) {
+            curr = endWaypoint;
+            while (curr != startWaypoint) {
                 path.Push(curr);
                 curr = prev[curr];
             }
             return path;
         }
 
-        Vector3 NearestWaypoint(Vector3 position) {
+        Vector3 NearestRoom(Vector3 position) {
             Vector3 point = new Vector3(-1f, -1f, -1f);
             float dist = Vector3.Distance(point, position);
             foreach (Vector3 roomCenter in dg.Waypoints) {
@@ -259,24 +262,17 @@ namespace Agent
             return point;
         }
 
-        List<Vector3> Neighbors(Vector3 roomCenter) {
-            // find all possible neighbors and check connectivity
-            List<Vector3> neighbors = new List<Vector3>();
-            Vector3 leftCorridor = new Vector3(roomCenter.x - roomSize, roomCenter.y, 0);
-            Vector3 rightCorridor = new Vector3(roomCenter.x + roomSize, roomCenter.y, 0);
-            Vector3 downCorridor = new Vector3(roomCenter.x, roomCenter.y - roomSize, 0);
-            Vector3 upCorridor = new Vector3(roomCenter.x, roomCenter.y + roomSize, 0);
-            Vector3[] array = {leftCorridor, rightCorridor, downCorridor, upCorridor};
-            foreach (Vector3 cor in array) {
-                int x = (int)cor.x;
-                int y = (int)cor.y;
-                if (0 <= x && x < dg.realMap.GetLength(0) && 0 <= y && y < dg.realMap.GetLength(1)) {
-                    if (dg.realMap[x, y] != 0) {
-                        neighbors.Add(roomCenter + 2f*(cor - roomCenter));
-                    }
+        Vector3 NearestWaypoint(Vector3 position) {
+            Vector3 point = new Vector3(-1f, -1f, -1f);
+            float dist = Vector3.Distance(point, position);
+            foreach (Vector3 waypoint in dg.HRWaypoints) {
+                float newDist = Vector3.Distance(waypoint, position);
+                if (newDist < dist) {
+                    point = waypoint;
+                    dist = newDist;
                 }
             }
-            return neighbors;
+            return point;
         }
     }
 }

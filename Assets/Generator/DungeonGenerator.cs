@@ -20,7 +20,13 @@ namespace Generator
 
         [System.NonSerialized]
         public List<MovementAIRigidbody> Walls = new List<MovementAIRigidbody>();
-        public List<Vector3> Waypoints = new List<Vector3>();
+        // waypoints for room centers
+        public List<Vector3> Waypoints;
+        // higher resolution waypoints including corridors
+        public List<Vector3> HRWaypoints;
+        // navigation graph
+        public Dictionary<Vector3, List<Vector3>> Neighbors;
+
         [System.NonSerialized]
         public int[,] realMap;
 
@@ -30,7 +36,6 @@ namespace Generator
         }
 
         public void Generate() {
-            realMap = new int[(width*2 - 1)*roomSize + 2*wrapWidth, (height*2 - 1)*roomSize + 2*wrapWidth];
             trans = wall.GetComponent<Transform>();
             MovementAIRigidbody rb = trans.GetComponent<MovementAIRigidbody>();
             /* Manually set up the MovementAIRigidbody since the given obj can be a prefab */
@@ -42,6 +47,9 @@ namespace Generator
             }
             Walls = new List<MovementAIRigidbody>();
             Waypoints = new List<Vector3>();
+            HRWaypoints = new List<Vector3>();
+            Neighbors = new Dictionary<Vector3, List<Vector3>>();
+            realMap = new int[(width*2 - 1)*roomSize + 2*wrapWidth, (height*2 - 1)*roomSize + 2*wrapWidth];
 
             // build cyclic dungeon
             int[, ] map = InitCycle(width, height, Random.Range(minWalkLen, maxWalkLen + 1));
@@ -63,10 +71,10 @@ namespace Generator
             int[, ] expandedMap = new int[width*2 - 1, height*2 - 1];
 
             // possible directions
-            Vector2Int up = new Vector2Int(0, 1);
-            Vector2Int down = new Vector2Int(0, -1);
-            Vector2Int left = new Vector2Int(-1, 0);
-            Vector2Int right = new Vector2Int(1, 0);
+            Vector2Int upInt = new Vector2Int(0, 1);
+            Vector2Int downInt = new Vector2Int(0, -1);
+            Vector2Int leftInt = new Vector2Int(-1, 0);
+            Vector2Int rightInt = new Vector2Int(1, 0);
 
             // choose a random start
             Vector2Int curr = new Vector2Int(Random.Range(0, width - 1), Random.Range(0, height - 1));
@@ -78,10 +86,10 @@ namespace Generator
                 // walk one step randomly
 
                 // get all possible destinations
-                Vector2Int upDest = curr + up;
-                Vector2Int downDest = curr + down;
-                Vector2Int leftDest = curr + left;
-                Vector2Int rightDest = curr + right;
+                Vector2Int upDest = curr + upInt;
+                Vector2Int downDest = curr + downInt;
+                Vector2Int leftDest = curr + leftInt;
+                Vector2Int rightDest = curr + rightInt;
                 Vector2Int[] dest =  {upDest, downDest, leftDest, rightDest};
 
                 // get all the valid destinations
@@ -136,19 +144,19 @@ namespace Generator
                     if (0 < expandedMap[x, y] && expandedMap[x, y] < halfEdge) {
                         // add half edges
                         Vector2Int adjacent;
-                        adjacent = pos + up;
+                        adjacent = pos + upInt;
                         if (0 <= adjacent.x && adjacent.x < expandedMap.GetLength(0) && 0 <= adjacent.y && adjacent.y < expandedMap.GetLength(1)) {
                             expandedMap[adjacent.x, adjacent.y] += halfEdge;
                         }
-                        adjacent = pos + down;
+                        adjacent = pos + downInt;
                         if (0 <= adjacent.x && adjacent.x < expandedMap.GetLength(0) && 0 <= adjacent.y && adjacent.y < expandedMap.GetLength(1)) {
                             expandedMap[adjacent.x, adjacent.y] += halfEdge;
                         }
-                        adjacent = pos + left;
+                        adjacent = pos + leftInt;
                         if (0 <= adjacent.x && adjacent.x < expandedMap.GetLength(0) && 0 <= adjacent.y && adjacent.y < expandedMap.GetLength(1)) {
                             expandedMap[adjacent.x, adjacent.y] += halfEdge;
                         }
-                        adjacent = pos + right;
+                        adjacent = pos + rightInt;
                         if (0 <= adjacent.x && adjacent.x < expandedMap.GetLength(0) && 0 <= adjacent.y && adjacent.y < expandedMap.GetLength(1)) {
                             expandedMap[adjacent.x, adjacent.y] += halfEdge;
                         }
@@ -157,6 +165,11 @@ namespace Generator
             }
 
             // assign 1 to rooms and 2 to corridors, and 0 to the rest; build waypoints
+            float roomHalfSize = (float)((roomSize - 1)/2);
+            Vector3 left = new Vector3(-roomHalfSize, 0, 0);
+            Vector3 right = new Vector3(roomHalfSize, 0, 0);
+            Vector3 down = new Vector3(0, -roomHalfSize, 0);
+            Vector3 up = new Vector3(0, roomHalfSize, 0);
             for (int x = 0; x < expandedMap.GetLength(0); x++) {
                 for (int y = 0; y < expandedMap.GetLength(1); y++) {
                     if (expandedMap[x, y] == edge) {
@@ -166,9 +179,100 @@ namespace Generator
                         // calculate the room's corrdinate on the final map
                         float real_x = (float)x*roomSize + middle + wrapWidth;
                         float real_y = (float)y*roomSize + middle + wrapWidth;
-                        Waypoints.Add(new Vector3(real_x, real_y, 0f));
+                        Vector3 roomCenter = new Vector3(real_x, real_y, 0);
+                        Waypoints.Add(roomCenter);
+                        HRWaypoints.Add(roomCenter);
+                        // add corridors
+                        Vector3 leftCorridor = roomCenter + left;
+                        Vector3 rightCorridor = roomCenter + right;
+                        Vector3 downCorridor = roomCenter + down;
+                        Vector3 upCorridor = roomCenter + up;
+                        HRWaypoints.Add(leftCorridor);
+                        HRWaypoints.Add(rightCorridor);
+                        HRWaypoints.Add(downCorridor);
+                        HRWaypoints.Add(upCorridor);
+                        // build graph
+                        Neighbors[roomCenter] = new List<Vector3>();
+                        Neighbors[leftCorridor] = new List<Vector3>();
+                        Neighbors[rightCorridor] = new List<Vector3>();
+                        Neighbors[downCorridor] = new List<Vector3>();
+                        Neighbors[upCorridor] = new List<Vector3>();
+                        Neighbors[roomCenter].Add(leftCorridor);
+                        Neighbors[leftCorridor].Add(roomCenter);
+                        Neighbors[roomCenter].Add(rightCorridor);
+                        Neighbors[rightCorridor].Add(roomCenter);
+                        Neighbors[roomCenter].Add(downCorridor);
+                        Neighbors[downCorridor].Add(roomCenter);
+                        Neighbors[roomCenter].Add(upCorridor);
+                        Neighbors[upCorridor].Add(roomCenter);
                     } else {
                         expandedMap[x, y] = 0;
+                    }
+                }
+            }
+            // go through the map again to connect corridors
+            Vector3 left1 = new Vector3(-1, 0, 0);
+            Vector3 right1 = new Vector3(1, 0, 0);
+            Vector3 down1 = new Vector3(0, -1, 0);
+            Vector3 up1 = new Vector3(0, 1, 0);
+            for (int x = 0; x < expandedMap.GetLength(0); x++) {
+                for (int y = 0; y < expandedMap.GetLength(1); y++) {
+                    if (expandedMap[x, y] == 2) {
+                        // vertical edges
+                        if (x%2 == 0) {
+                            float real_x = (float)x*roomSize + middle + wrapWidth;
+                            float real_yDown = (float)y*roomSize + wrapWidth;
+                            Vector3 pointDown = new Vector3(real_x, real_yDown);
+                            float real_yUp = real_yDown + (float)roomSize - 1;
+                            Vector3 pointUp = new Vector3(real_x, real_yUp);
+                            // add waypoints
+                            HRWaypoints.Add(pointDown);
+                            HRWaypoints.Add(pointUp);
+                            // buid graph
+                            Neighbors[pointDown] = new List<Vector3>();
+                            Neighbors[pointDown].Add(pointUp);
+                            Neighbors[pointUp] = new List<Vector3>();
+                            Neighbors[pointUp].Add(pointDown);
+                            // find exit
+                            Vector3 downOut = pointDown + down1;
+                            Vector3 upOut = pointUp + up1;
+                            // if the rooms exist, connect them with the corridor
+                            if (Neighbors.ContainsKey(downOut)) {
+                                Neighbors[downOut].Add(pointDown);
+                                Neighbors[pointDown].Add(downOut);
+                            }
+                            if (Neighbors.ContainsKey(upOut)) {
+                                Neighbors[upOut].Add(pointUp);
+                                Neighbors[pointUp].Add(upOut);
+                            }
+                        // horizontal edges
+                        } else {
+                            float real_xLeft = (float)x*roomSize + wrapWidth;
+                            float real_y = (float)y*roomSize + middle + wrapWidth;
+                            Vector3 pointLeft = new Vector3(real_xLeft, real_y);
+                            float real_xRight = real_xLeft + (float)roomSize - 1;
+                            Vector3 pointRight = new Vector3(real_xRight, real_y);
+                            // add waypoints
+                            HRWaypoints.Add(pointLeft);
+                            HRWaypoints.Add(pointRight);
+                            // buid graph
+                            Neighbors[pointLeft] = new List<Vector3>();
+                            Neighbors[pointLeft].Add(pointRight);
+                            Neighbors[pointRight] = new List<Vector3>();
+                            Neighbors[pointRight].Add(pointLeft);
+                            // find exit
+                            Vector3 leftOut = pointLeft + left1;
+                            Vector3 rightOut = pointRight + right1;
+                            // if the rooms exist, connect them with the corridor
+                            if (Neighbors.ContainsKey(leftOut)) {
+                                Neighbors[leftOut].Add(pointLeft);
+                                Neighbors[pointLeft].Add(leftOut);
+                            }
+                            if (Neighbors.ContainsKey(rightOut)) {
+                                Neighbors[rightOut].Add(pointRight);
+                                Neighbors[pointRight].Add(rightOut);
+                            }
+                        }
                     }
                 }
             }

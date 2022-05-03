@@ -8,6 +8,7 @@ namespace Agent
     // Finite State Machine agent
     public class OverseerUnit : MonoBehaviour
     {
+        SpriteRenderer renderer;
         MovementAIRigidbody rb;
         MovementAIRigidbody target;
         SteeringBasics steeringBasics;
@@ -20,6 +21,7 @@ namespace Agent
 
         void Start()
         {
+            renderer = GetComponent<SpriteRenderer>();
             gm = GameObject.Find("GameManager").GetComponent<GameManager>();
             rb = GetComponent<MovementAIRigidbody>();
             target = GameObject.Find("PlayerUnit(Clone)").GetComponent<MovementAIRigidbody>();
@@ -50,6 +52,8 @@ namespace Agent
                 state = State.active;
                 return;
             }
+            rb.Velocity *= 0.99f;
+            renderer.color = new Color(1f, 1f, 0f, 1f);
         }
 
         void Active() {
@@ -66,6 +70,7 @@ namespace Agent
             steeringBasics.Steer(accel);
             steeringBasics.LookWhereYoureGoing();
             rb.Velocity = new Vector3(0, 0, 0);
+            renderer.color = new Color(1f, 160f/255f, 0f, 1f);
         }
 
         void Dead() {}

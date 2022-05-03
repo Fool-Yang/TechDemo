@@ -46,8 +46,7 @@ MonoBehaviour:
   guardUnit: {fileID: 138492, guid: 4899abe30e28f2346ad7c7aad5ef6831, type: 3}
   overseerUnit: {fileID: 138492, guid: 455bb1c1f5c560c4295ef52ecd7f9f67, type: 3}
   targetUnit: {fileID: 131374, guid: 432c4eb9b895c0543b9d8443e79b7c04, type: 3}
-  guardSpawnChance: 0.3
-  overseerSpawnChance: 0.5
+  playerUnit: {fileID: 0}
+  guardSpawnChance: 0.55
+  overseerSpawnChance: 0.15
   targetSpawnChance: 0.1
-  OverseerUnits: []
-  TargetUnits: []

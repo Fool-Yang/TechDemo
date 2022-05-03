@@ -12,8 +12,8 @@ namespace Generator
         public GameObject playerUnit;
 
         [Header("Spawning Chance (they have to add up to at most 1)")]
-        public float guardSpawnChance = 0.45f;
-        public float overseerSpawnChance = 0.35f;
+        public float guardSpawnChance = 0.55f;
+        public float overseerSpawnChance = 0.15f;
         public float targetSpawnChance = 0.1f;
         
         float guardSpawnThr;
